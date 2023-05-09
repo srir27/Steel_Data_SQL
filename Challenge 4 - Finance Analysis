@@ -1,0 +1,94 @@
+#1. What are the names of all the customers who live in New York?
+select concat(FirstName,' ', LastName)
+from Customers
+where City = 'New York'
+-------------------------------------------------------------------------------------------------
+#2. What is the total number of accounts in the Accounts table?
+select count(AccountID) as NumberOfAccounts
+from Accounts
+-------------------------------------------------------------------------------------------------
+#3. What is the total balance of all checking accounts?
+select sum(Balance) as TotalBalance
+from Accounts
+where lower(AccountType) = 'checking'
+-------------------------------------------------------------------------------------------------
+#4. What is the total balance of all accounts associated with customers who live in Los Angeles?
+select sum(Balance) as totalbalance
+from Accounts a
+join Customers c using (CustomerID)
+where c.City = "Los Angeles"
+-------------------------------------------------------------------------------------------------
+#5. Which branch has the highest average account balance?
+with cte as
+(select b.BranchID, b.BranchName, avg(a.Balance) as avgbal
+from Branches b
+join Accounts a using (BranchID)
+group by b.BranchID, b.BranchName
+)
+select BranchID, BranchName
+from cte
+where avgbal = (select max(avgbal) from cte)
+-------------------------------------------------------------------------------------------------
+#6. Which customer has the highest current balance in their accounts?
+with cte as (select c.CustomerID, concat(c.FirstName,' ',c.LastName) as CustomerName ,sum(a.Balance) as CurrentBalance
+from Customers c
+join Accounts a using (CustomerID)
+group by 1,2) 
+select CustomerID, CustomerName, CurrentBalance
+from cte
+where CurrentBalance = (select max(CurrentBalance) from cte)
+
+--USING SUBQUERY
+select c.CustomerID, concat(FirstName,' ', LastName) as CustomerName, sum(a.Balance) as CurrentBalance
+from Customers c
+join Accounts a using(CustomerID)
+group by c.CustomerID, concat(FirstName,' ', LastName)
+having sum(a.Balance) =
+(
+select max(CurrentBalance) from 
+(select c.CustomerID,sum(a.Balance) as CurrentBalance
+from Customers c
+join Accounts a using (CustomerID)
+group by c.CustomerID)cte)
+-------------------------------------------------------------------------------------------------
+#7. Which customer has made the most transactions in the Transactions table?
+with cte as
+(select concat(c.FirstName,' ',c.LastName) CustomerName, count(t.TransactionID) cnt
+from Customers c
+join Accounts a using (CustomerID)
+join Transactions t using (AccountID)
+group by concat(c.FirstName,' ',c.LastName))
+select CustomerName, cnt as NumberOfTransaction
+from cte
+where cnt = (select max(cnt) from cte)
+-------------------------------------------------------------------------------------------------
+#8.Which branch has the highest total balance across all of its accounts?
+with cte as(
+select b.BranchName, sum(a.Balance) as TotalBalance
+from Branches b  
+join Accounts a using (BranchID)
+group by b.BranchName)
+select BranchName
+from cte
+where TotalBalance = (select max(TotalBalance) from cte)
+-------------------------------------------------------------------------------------------------
+#9. Which customer has the highest total balance across all of their accounts, including savings and checking accounts?
+select c.CustomerID, concat(c.FirstName,' ',c.LastName) as CustomerName,
+sum(a.Balance) as TotalBalance
+from Customers c
+join Accounts a using (CustomerID)
+where a.Accounttype in ('Checking','Savings')
+group by c.CustomerID, concat(c.FirstName,' ',c.LastName)
+order by TotalBalance desc
+limit 1
+-------------------------------------------------------------------------------------------------
+#10. Which branch has the highest number of transactions in the Transactions table?
+with cte as(
+select b.BranchName, count(t.TransactionID) as NumberOfTransactions
+from Branches b  
+join Accounts a using (BranchID)
+join Transactions t using (AccountID)
+group by b.BranchName)
+select BranchName, NumberOfTransactions
+from cte
+where NumberOfTransactions = (select max(NumberOfTransactions) from cte)
