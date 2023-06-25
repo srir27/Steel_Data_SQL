@@ -1,0 +1,100 @@
+--1. How many pubs are located in each country??
+select country, count(pub_id) as Num_of_Pubs
+from pubs
+group by country
+----------------------------------------------------------------------------------------------------------
+--2. What is the total sales amount for each pub, including the beverage price and quantity sold?
+select p.pub_id, p.pub_name, sum(b.price_per_unit*s.quantity) Total_sales
+from sales s
+join pubs p using (pub_id)
+join beverages b using (beverage_id)
+group by p.pub_id, p.pub_name
+----------------------------------------------------------------------------------------------------------
+--3. Which pub has the highest average rating?
+with cte as
+(select p.pub_name, avg(r.rating) as AvgRating
+from pubs p
+join ratings r using(pub_id)
+group by p.pub_name)
+select pub_name, AvgRating
+from cte
+where AvgRating = (select max(AvgRating) from cte);
+----------------------------------------------------------------------------------------------------------
+--4. What are the top 5 beverages by sales quantity across all pubs?
+select b.beverage_name, 
+sum(s.quantity) as SaleQty
+from sales s
+join beverages b using (beverage_id)
+group by b.beverage_name
+order by SaleQty desc
+limit 5
+----------------------------------------------------------------------------------------------------------
+--5. How many sales transactions occurred on each date?
+select transaction_date, count(sale_id) NumOFSales
+from sales
+group by transaction_date
+----------------------------------------------------------------------------------------------------------
+--6. Find the name of someone that had cocktails and which pub they had it in.
+select r.customer_name, p.pub_name
+from ratings r
+join pubs p using (pub_id)
+where r.review like '%cocktail%'
+----------------------------------------------------------------------------------------------------------
+--7. What is the average price per unit for each category of beverages, excluding the category 'Spirit'?
+select category, round(avg(price_per_unit),2) AvgPriceperunit
+from beverages 
+where category != 'Spirit'
+group by category
+order by AvgPriceperunit
+----------------------------------------------------------------------------------------------------------
+--8. Which pubs have a rating higher than the average rating of all pubs?
+with cte as (select pub_id from ratings
+where rating > (select avg(rating) from ratings))
+select pub_name from pubs 
+where pub_id in (select pub_id from cte)
+----------------------------------------------------------------------------------------------------------
+--9. What is the running total of sales amount for each pub, ordered by the transaction date?
+with cte as (select p.pub_name, s.transaction_date,
+sum(s.quantity*b.price_per_unit) as totalsale
+from pubs p
+join sales s using (pub_id)
+join beverages b using (beverage_id)
+group by p.pub_name, s.transaction_date)
+select *, sum(totalsale) over (partition by pub_name order by transaction_date) running_total
+from cte
+----------------------------------------------------------------------------------------------------------
+--10. For each country, what is the average price per unit of beverages in each category, 
+--and what is the overall average price per unit of beverages across all categories?
+with cte1 as 
+(select p.country, b.category, avg(b.price_per_unit) avgpriceperunit
+from beverages b
+join sales s using (beverage_id)
+join pubs p using (pub_id)
+group by p.country, b.category),
+cte2 as
+(select p.country, avg(b.price_per_unit) overallpriceperunit
+from beverages b
+join sales s using (beverage_id)
+join pubs p using (pub_id)
+group by p.country)
+select c1.country, c1. category, c1.avgpriceperunit, c2.overallpriceperunit
+from cte1 c1
+join cte2 c2 using (country)
+----------------------------------------------------------------------------------------------------------
+--11. For each pub, what is the percentage contribution of each category of beverages to the total sales amount, 
+--and what is the pub's overall sales amount?
+with cte1 as 
+(select p.pub_name, sum(b.price_per_unit*s.quantity) as overallsales
+from pubs p 
+join sales s using (pub_id)
+join beverages b using (beverage_id)
+group by p.pub_name),
+cte2 as
+(select p.pub_name,b.category, sum(b.price_per_unit*s.quantity) as categorysales
+from pubs p 
+join sales s using (pub_id)
+join beverages b using (beverage_id)
+group by p.pub_name,b.category)
+select c1.pub_name, c2.category, c1.overallsales, round((c2.categorysales/c1.overallsales*100),2) as Contributionpercentage
+from cte1 c1
+join cte2 c2 using (pub_name)
